@@ -132,12 +132,14 @@ jobs:
               RELEASE_VERSION=${{ needs.build-and-push.outputs.image_tag }}
 
       - name: Apply optional staging app settings
-        if: ${{ secrets.STAGING_AZURE_APP_SETTINGS != '' }}
+        env:
+          OPTIONAL_APP_SETTINGS: ${{ secrets.STAGING_AZURE_APP_SETTINGS }}
+        if: ${{ env.OPTIONAL_APP_SETTINGS != '' }}
         run: |
           az webapp config appsettings set \
             --name "${{ secrets.STAGING_AZURE_WEBAPP_NAME }}" \
             --resource-group "${{ secrets.STAGING_AZURE_RESOURCE_GROUP }}" \
-            --settings ${{ secrets.STAGING_AZURE_APP_SETTINGS }}
+            --settings "$OPTIONAL_APP_SETTINGS"
 
       - name: Restart staging App Service
         run: |

@@ -144,12 +144,14 @@ jobs:
               RELEASE_VERSION=${{ needs.resolve-image.outputs.image_tag }}
 
       - name: Apply optional production app settings
-        if: ${{ secrets.AZURE_APP_SETTINGS != '' }}
+        env:
+          OPTIONAL_APP_SETTINGS: ${{ secrets.AZURE_APP_SETTINGS }}
+        if: ${{ env.OPTIONAL_APP_SETTINGS != '' }}
         run: |
           az webapp config appsettings set \
             --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
             --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --settings ${{ secrets.AZURE_APP_SETTINGS }}
+            --settings "$OPTIONAL_APP_SETTINGS"
 
       - name: Restart production App Service
         run: |
