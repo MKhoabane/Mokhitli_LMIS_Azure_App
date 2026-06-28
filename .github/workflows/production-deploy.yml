@@ -25,9 +25,6 @@ on:
         required: true
         type: string
 
-env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/qcto-lmis-app
-
 concurrency:
   group: production-release
   cancel-in-progress: false
@@ -44,6 +41,7 @@ jobs:
         id: resolve
         run: |
           IMAGE_TAG="${{ inputs.release_image_tag }}"
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/qcto-lmis-app"
 
           case "$IMAGE_TAG" in
             sha-*) ;;
