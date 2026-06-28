@@ -83,6 +83,6 @@ describe('App', () => {
     });
 
     expect(window.location.pathname).toBe('/learner');
-    expect(screen.getByText('Thabo Mbeki')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Thabo Mbeki' })).toBeInTheDocument();
   });
 });
