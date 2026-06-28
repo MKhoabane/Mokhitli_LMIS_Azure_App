@@ -1,0 +1,2 @@
+-- Deprecated root migration placeholder.
+-- Domain-owned schema lives under db/domains/*/tables.

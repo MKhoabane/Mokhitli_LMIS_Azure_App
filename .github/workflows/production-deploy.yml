@@ -1,0 +1,214 @@
+name: Production Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_action:
+        description: Deploy a staged image or roll back to a previous one
+        required: true
+        default: deploy
+        type: choice
+        options:
+          - deploy
+          - rollback
+      deploy_target:
+        description: Production target to run
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - azure
+          - vps
+      release_image_tag:
+        description: Immutable image tag to deploy, for example sha-<commit>
+        required: true
+        type: string
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/qcto-lmis-app
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+jobs:
+  resolve-image:
+    runs-on: ubuntu-latest
+    outputs:
+      image_ref: ${{ steps.resolve.outputs.image_ref }}
+      image_tag: ${{ steps.resolve.outputs.image_tag }}
+      release_action: ${{ steps.resolve.outputs.release_action }}
+    steps:
+      - name: Validate and resolve image tag
+        id: resolve
+        run: |
+          IMAGE_TAG="${{ inputs.release_image_tag }}"
+
+          case "$IMAGE_TAG" in
+            sha-*) ;;
+            *)
+              echo "release_image_tag must start with sha-"
+              exit 1
+              ;;
+          esac
+
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "image_ref=${IMAGE_NAME}:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "release_action=${{ inputs.release_action }}" >> "$GITHUB_OUTPUT"
+
+  verify-production-migrations-azure:
+    runs-on: ubuntu-latest
+    needs: resolve-image
+    if: >
+      needs.resolve-image.result == 'success' &&
+      (inputs.deploy_target == 'azure' || inputs.deploy_target == 'all')
+    env:
+      PGHOST: ${{ secrets.PRODUCTION_AZURE_DB_HOST }}
+      PGPORT: ${{ secrets.PRODUCTION_AZURE_DB_PORT }}
+      PGDATABASE: ${{ secrets.PRODUCTION_AZURE_DB_NAME }}
+      PGUSER: ${{ secrets.PRODUCTION_AZURE_DB_USER }}
+      PGPASSWORD: ${{ secrets.PRODUCTION_AZURE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend dependencies for migration gate
+        working-directory: backend
+        run: npm ci
+      - name: Verify Azure production migrations are applied
+        working-directory: backend
+        run: npm run db:check
+
+  verify-production-migrations-vps:
+    runs-on: ubuntu-latest
+    needs: resolve-image
+    if: >
+      needs.resolve-image.result == 'success' &&
+      (inputs.deploy_target == 'vps' || inputs.deploy_target == 'all')
+    env:
+      PGHOST: ${{ secrets.PRODUCTION_VPS_DB_HOST }}
+      PGPORT: ${{ secrets.PRODUCTION_VPS_DB_PORT }}
+      PGDATABASE: ${{ secrets.PRODUCTION_VPS_DB_NAME }}
+      PGUSER: ${{ secrets.PRODUCTION_VPS_DB_USER }}
+      PGPASSWORD: ${{ secrets.PRODUCTION_VPS_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend dependencies for migration gate
+        working-directory: backend
+        run: npm ci
+      - name: Verify VPS production migrations are applied
+        working-directory: backend
+        run: npm run db:check
+
+  deploy-production-azure:
+    runs-on: ubuntu-latest
+    needs:
+      - resolve-image
+      - verify-production-migrations-azure
+    environment: production
+    if: >
+      needs.resolve-image.result == 'success' &&
+      needs.verify-production-migrations-azure.result == 'success' &&
+      (inputs.deploy_target == 'azure' || inputs.deploy_target == 'all')
+    steps:
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Point production App Service at the selected container image
+        run: |
+          az webapp config container set \
+            --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --container-image-name "${{ needs.resolve-image.outputs.image_ref }}" \
+            --container-registry-url "https://ghcr.io" \
+            --container-registry-user "${{ secrets.GHCR_USERNAME }}" \
+            --container-registry-password "${{ secrets.GHCR_READ_TOKEN }}"
+
+      - name: Set production release metadata
+        run: |
+          az webapp config appsettings set \
+            --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --settings \
+              APP_ENV=production \
+              RELEASE_VERSION=${{ needs.resolve-image.outputs.image_tag }}
+
+      - name: Apply optional production app settings
+        if: ${{ secrets.AZURE_APP_SETTINGS != '' }}
+        run: |
+          az webapp config appsettings set \
+            --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --settings ${{ secrets.AZURE_APP_SETTINGS }}
+
+      - name: Restart production App Service
+        run: |
+          az webapp restart \
+            --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}"
+
+  smoke-test-production-azure:
+    runs-on: ubuntu-latest
+    needs:
+      - resolve-image
+      - deploy-production-azure
+    if: ${{ needs.deploy-production-azure.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node infrastructure/ci-cd/smoke-test.mjs "${{ secrets.PRODUCTION_AZURE_BASE_URL }}" "production" "${{ needs.resolve-image.outputs.image_tag }}"
+
+  deploy-production-vps:
+    runs-on: ubuntu-latest
+    needs:
+      - resolve-image
+      - verify-production-migrations-vps
+    environment: production
+    if: >
+      needs.resolve-image.result == 'success' &&
+      needs.verify-production-migrations-vps.result == 'success' &&
+      (inputs.deploy_target == 'vps' || inputs.deploy_target == 'all')
+    steps:
+      - name: Deploy production on VPS over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -eu
+            cd "${{ secrets.VPS_APP_DIR }}"
+            git fetch --all
+            git checkout "${{ github.ref_name }}"
+            git pull origin "${{ github.ref_name }}"
+            echo "${{ secrets.GHCR_READ_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
+            export APP_IMAGE="${{ needs.resolve-image.outputs.image_ref }}"
+            export APP_ENV="production"
+            export RELEASE_VERSION="${{ needs.resolve-image.outputs.image_tag }}"
+            sh infrastructure/vps/deploy.sh
+
+  smoke-test-production-vps:
+    runs-on: ubuntu-latest
+    needs:
+      - resolve-image
+      - deploy-production-vps
+    if: ${{ needs.deploy-production-vps.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node infrastructure/ci-cd/smoke-test.mjs "${{ secrets.PRODUCTION_VPS_BASE_URL }}" "production" "${{ needs.resolve-image.outputs.image_tag }}"

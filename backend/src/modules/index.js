@@ -1,0 +1,20 @@
+module.exports = [
+  require('./authentication/module.config'),
+  require('./user-management/module.config'),
+  require('./rbac/module.config'),
+  require('./learner-management/module.config'),
+  require('./programme-management/module.config'),
+  require('./qualification-management/module.config'),
+  require('./lms/module.config'),
+  require('./assessment-engine/module.config'),
+  require('./eisa/module.config'),
+  require('./workplace-learning/module.config'),
+  require('./certificates/module.config'),
+  require('./reporting/module.config'),
+  require('./finance/module.config'),
+  require('./crm/module.config'),
+  require('./audit/module.config'),
+  require('./notifications/module.config'),
+  require('./ai/module.config'),
+  require('./rest-api/module.config')
+];

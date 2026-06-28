@@ -1,0 +1,2 @@
+-- Deprecated root seed placeholder.
+-- Domain-owned reference data lives under db/domains/*/seeds.

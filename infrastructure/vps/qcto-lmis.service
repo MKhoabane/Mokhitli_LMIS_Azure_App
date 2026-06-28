@@ -1,0 +1,15 @@
+[Unit]
+Description=QCTO LMIS Production Stack
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/qcto-lmis/infrastructure/docker
+RemainAfterExit=yes
+ExecStart=/usr/bin/docker compose --env-file .env.production -f docker-compose.production.yml up -d
+ExecStop=/usr/bin/docker compose --env-file .env.production -f docker-compose.production.yml down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

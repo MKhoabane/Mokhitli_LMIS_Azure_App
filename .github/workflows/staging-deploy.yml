@@ -1,0 +1,202 @@
+name: Staging Deploy
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: Staging target to run
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - azure
+          - vps
+          - none
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/qcto-lmis-app
+
+concurrency:
+  group: staging-release
+  cancel-in-progress: false
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+      - run: npm test -- --runInBand
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run test -- --run
+      - run: npm run build
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs:
+      - backend-tests
+      - frontend-tests
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_ref: ${{ steps.image.outputs.image_ref }}
+      image_tag: ${{ steps.image.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: image
+        run: |
+          echo "image_tag=sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image_ref=${IMAGE_NAME}:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/Dockerfile.production
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image_ref }}
+            ${{ env.IMAGE_NAME }}:latest
+
+  deploy-staging-azure:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: staging
+    if: >
+      needs.build-and-push.result == 'success' &&
+      (
+        (github.event_name == 'push' && vars.DEPLOY_STAGING_TO_AZURE == 'true') ||
+        (github.event_name == 'workflow_dispatch' && (inputs.deploy_target == 'azure' || inputs.deploy_target == 'all'))
+      )
+    steps:
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Point staging App Service at the new container image
+        run: |
+          az webapp config container set \
+            --name "${{ secrets.STAGING_AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.STAGING_AZURE_RESOURCE_GROUP }}" \
+            --container-image-name "${{ needs.build-and-push.outputs.image_ref }}" \
+            --container-registry-url "https://ghcr.io" \
+            --container-registry-user "${{ secrets.GHCR_USERNAME }}" \
+            --container-registry-password "${{ secrets.GHCR_READ_TOKEN }}"
+
+      - name: Set staging release metadata
+        run: |
+          az webapp config appsettings set \
+            --name "${{ secrets.STAGING_AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.STAGING_AZURE_RESOURCE_GROUP }}" \
+            --settings \
+              APP_ENV=staging \
+              RELEASE_VERSION=${{ needs.build-and-push.outputs.image_tag }}
+
+      - name: Apply optional staging app settings
+        if: ${{ secrets.STAGING_AZURE_APP_SETTINGS != '' }}
+        run: |
+          az webapp config appsettings set \
+            --name "${{ secrets.STAGING_AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.STAGING_AZURE_RESOURCE_GROUP }}" \
+            --settings ${{ secrets.STAGING_AZURE_APP_SETTINGS }}
+
+      - name: Restart staging App Service
+        run: |
+          az webapp restart \
+            --name "${{ secrets.STAGING_AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.STAGING_AZURE_RESOURCE_GROUP }}"
+
+  smoke-test-staging-azure:
+    runs-on: ubuntu-latest
+    needs:
+      - build-and-push
+      - deploy-staging-azure
+    if: ${{ needs.deploy-staging-azure.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node infrastructure/ci-cd/smoke-test.mjs "${{ secrets.STAGING_AZURE_BASE_URL }}" "staging" "${{ needs.build-and-push.outputs.image_tag }}"
+
+  deploy-staging-vps:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: staging
+    if: >
+      needs.build-and-push.result == 'success' &&
+      (
+        (github.event_name == 'push' && vars.DEPLOY_STAGING_TO_VPS == 'true') ||
+        (github.event_name == 'workflow_dispatch' && (inputs.deploy_target == 'vps' || inputs.deploy_target == 'all'))
+      )
+    steps:
+      - name: Deploy staging on VPS over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.STAGING_VPS_HOST }}
+          username: ${{ secrets.STAGING_VPS_USERNAME }}
+          key: ${{ secrets.STAGING_VPS_SSH_KEY }}
+          port: ${{ secrets.STAGING_VPS_PORT }}
+          script: |
+            set -eu
+            cd "${{ secrets.STAGING_VPS_APP_DIR }}"
+            git fetch --all
+            git checkout "${{ github.ref_name }}"
+            git pull origin "${{ github.ref_name }}"
+            echo "${{ secrets.GHCR_READ_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
+            export APP_IMAGE="${{ needs.build-and-push.outputs.image_ref }}"
+            export APP_ENV="staging"
+            export RELEASE_VERSION="${{ needs.build-and-push.outputs.image_tag }}"
+            sh infrastructure/vps/deploy.sh
+
+  smoke-test-staging-vps:
+    runs-on: ubuntu-latest
+    needs:
+      - build-and-push
+      - deploy-staging-vps
+    if: ${{ needs.deploy-staging-vps.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node infrastructure/ci-cd/smoke-test.mjs "${{ secrets.STAGING_VPS_BASE_URL }}" "staging" "${{ needs.build-and-push.outputs.image_tag }}"
