@@ -79,7 +79,7 @@ describe('App', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Learner Portal/i)).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /Learner Portal/i })).toBeInTheDocument();
     });
 
     expect(window.location.pathname).toBe('/learner');
