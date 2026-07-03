@@ -13,11 +13,13 @@ RUN npm ci --omit=dev
 FROM node:20-alpine AS runtime
 ENV NODE_ENV=production
 ENV PORT=5000
+ENV NODE_PATH=/app/backend/node_modules
 
 WORKDIR /app/backend
 
 COPY --from=backend-deps /app/backend/node_modules ./node_modules
 COPY backend/ ./
+COPY db/ /app/db
 COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
 COPY infrastructure/docker/start-production.sh /app/infrastructure/docker/start-production.sh
 COPY infrastructure/docker/wait-for-db.js /app/infrastructure/docker/wait-for-db.js

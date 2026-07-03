@@ -49,8 +49,65 @@ VITE_API_BASE_URL=/api
 
 Production deployment assets are available in:
 
+- `amplify.yml`
 - `infrastructure/docker/`
+- `infrastructure/cpanel/`
 - `infrastructure/nginx/`
 - `infrastructure/azure/`
 - `infrastructure/vps/`
 - `infrastructure/ci-cd/`
+
+### Production-Ready Deployment
+
+The recommended website deployment path is the multi-stage production image in `infrastructure/docker/Dockerfile.production`.
+
+This production path now supports:
+
+- Express serving the built frontend from `frontend/dist`
+- environment-based CORS via `APP_BASE_URL` and `CORS_ORIGIN`
+- proxy-aware hosting via `TRUST_PROXY`
+- `DATABASE_URL` or separate PostgreSQL variables
+- Redis host configuration
+- required `JWT_SECRET` enforcement in production
+
+Quick start:
+
+1. Copy `infrastructure/docker/.env.production.example` to `infrastructure/docker/.env.production`
+2. Set:
+   - `APP_BASE_URL`
+   - `CORS_ORIGIN`
+   - `JWT_SECRET`
+   - database credentials
+3. Build the production image:
+
+```bash
+docker build -f infrastructure/docker/Dockerfile.production -t qcto-lmis-app:latest .
+```
+
+4. Launch the website stack:
+
+```bash
+docker compose --env-file infrastructure/docker/.env.production -f infrastructure/docker/docker-compose.production.yml up -d
+```
+
+5. Verify:
+
+```bash
+curl https://your-domain.example/api/health
+```
+
+See `docs/website-deployment.md` for the full deployment guide.
+
+## cPanel Hosting
+
+For cPanel hosts that support the Node.js Application Manager, use the cPanel-specific deployment path documented in `docs/cpanel-deployment.md`.
+
+## AWS Amplify Hosting
+
+For AWS Amplify Hosting, use the root `amplify.yml` file and the guide in `docs/amplify-deployment.md`.
+
+This path keeps the current LMIS repository structure intact:
+
+- Amplify Hosting builds and serves the frontend from `frontend/`
+- the existing Express backend remains deployed separately
+- the frontend connects to the live backend through `VITE_API_BASE_URL`

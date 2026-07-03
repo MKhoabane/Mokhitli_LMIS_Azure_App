@@ -1,4 +1,5 @@
 import type { PropsWithChildren } from 'react';
+import BrandLogo from '../../../components/BrandLogo';
 import type { AuthUser, PortalDefinition } from '../types';
 
 interface PortalShellProps extends PropsWithChildren {
@@ -29,16 +30,9 @@ export default function PortalShell({
     <div className="min-h-screen bg-slate-100 text-slate-900 lg:flex">
       <aside className="w-full bg-brand-blue text-white lg:min-h-screen lg:w-80">
         <div className="border-b border-white/10 px-8 py-8">
-          <div className="flex items-end">
-            <span className="text-5xl font-bold leading-none text-white">m</span>
-            <div className="mb-1 ml-[-12px] flex h-8 w-20 items-center justify-center rounded-full border border-white/20 bg-brand-gray opacity-80">
-              <div className="h-6 w-16 rounded-full bg-white/20" />
-            </div>
-            <span className="ml-[-12px] text-5xl font-bold leading-none text-brand-orange">E</span>
+          <div className="rounded-3xl bg-white p-4 shadow-lg">
+            <BrandLogo className="w-full" />
           </div>
-          <h1 className="mt-4 text-2xl font-light tracking-tight">
-            Mokhitli <span className="font-bold text-brand-orange">Enterprises</span>
-          </h1>
           <p className="mt-3 text-xs font-bold uppercase tracking-[0.3em] text-slate-300">
             QCTO Enterprise Suite
           </p>

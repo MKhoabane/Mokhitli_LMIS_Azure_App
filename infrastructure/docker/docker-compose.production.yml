@@ -6,13 +6,22 @@ services:
       NODE_ENV: production
       PORT: 5000
       APP_ENV: ${APP_ENV:-production}
+      APP_BASE_URL: ${APP_BASE_URL:-https://lmis.example.com}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://lmis.example.com}
       RELEASE_VERSION: ${RELEASE_VERSION:-manual}
+      TRUST_PROXY: ${TRUST_PROXY:-true}
       RUN_DB_SETUP: ${RUN_DB_SETUP:-true}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      DATABASE_URL: ${DATABASE_URL:-}
+      DB_SSL: ${DB_SSL:-false}
       PGUSER: ${PGUSER:-postgres}
       PGHOST: db
       PGDATABASE: ${PGDATABASE:-qcto_lmis}
       PGPASSWORD: ${PGPASSWORD:-password}
       PGPORT: 5432
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     depends_on:
       db:
         condition: service_healthy

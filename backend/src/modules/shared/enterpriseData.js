@@ -40,49 +40,58 @@ const authUsers = [
     name: 'Amina Naidoo',
     email: 'admin@mokhitli.com',
     role: 'admin',
-    defaultPortal: 'admin'
+    defaultPortal: 'admin',
+    passwordHash: '$2b$10$DALWfMzpvHOnvX4R/98XjOPt.s27a9vcw5.RrkDq6lRXCSmNZ/bs.'
   },
   {
     id: 102,
     name: 'Thabo Mbeki',
     email: 'learner@mokhitli.com',
     role: 'learner',
-    defaultPortal: 'learner'
+    defaultPortal: 'learner',
+    passwordHash: '$2b$10$UOvYJyxayce2rMp4VUZKMOOmreSB.2gyrVb/eSC5p7ffluBDgg9Aq'
   },
   {
     id: 103,
     name: 'Nomsa Dlamini',
     email: 'facilitator@mokhitli.com',
     role: 'facilitator',
-    defaultPortal: 'facilitator'
+    defaultPortal: 'facilitator',
+    passwordHash: '$2b$10$6MKKb3urvwGgNSNqcRlUneFRqjQQt3bjrXgXsa8iSJ1IeZTg0peoO'
   },
   {
     id: 104,
     name: 'Kagiso Mthembu',
     email: 'assessor@mokhitli.com',
     role: 'assessor',
-    defaultPortal: 'assessor'
+    defaultPortal: 'assessor',
+    passwordHash: '$2b$10$Gtvg43dfw8pi4DWsDHEf7.k.F9nIVwcKEZUPK0xUocnWfjJLVYwTm'
   },
   {
     id: 105,
     name: 'Zanele Sithole',
     email: 'moderator@mokhitli.com',
     role: 'moderator',
-    defaultPortal: 'moderator'
+    defaultPortal: 'moderator',
+    passwordHash: '$2b$10$D2B5iw30XVTEWgjgUX14n.VhLcX07tvvPW6CVPiuDIyn3yYIfkfRe'
   },
   {
     id: 106,
     name: 'Mokhitli Logistics Partners',
     email: 'employer@mokhitli.com',
     role: 'employer',
-    defaultPortal: 'employer'
+    defaultPortal: 'employer',
+    passwordHash: '$2b$10$gCT9eoEvBL3htyQS3oouJ.dsYf0gL8twbw.Dmi7vhx5PaHBut2c86',
+    companyId: 'ORG-001',
+    companyName: 'Mokhitli Logistics Partners'
   },
   {
     id: 107,
     name: 'Grace Mbeki',
     email: 'parent@mokhitli.com',
     role: 'parent',
-    defaultPortal: 'parent'
+    defaultPortal: 'parent',
+    passwordHash: '$2b$10$ib9Byva9sFplOuLfmPMmaeMpQy0npZkSzAkspetQSmGEc3.AI0xMa'
   }
 ];
 
@@ -114,6 +123,60 @@ const users = [
     email: 'moderator@mokhitli.com',
     role: 'moderator',
     status: 'Active'
+  },
+  {
+    id: 'USR-106',
+    name: 'Mokhitli Logistics Partners',
+    email: 'employer@mokhitli.com',
+    role: 'employer',
+    status: 'Active',
+    companyId: 'ORG-001',
+    companyName: 'Mokhitli Logistics Partners'
+  }
+];
+
+const companyRegistrations = [
+  {
+    id: 'ORG-001',
+    name: 'Mokhitli Logistics Partners',
+    companyEmail: 'partners@mokhitli.com',
+    adminName: 'Mokhitli Logistics Partners',
+    adminEmail: 'employer@mokhitli.com',
+    industry: 'Logistics',
+    requestedUsers: 18,
+    status: 'Active',
+    users: [
+      {
+        id: 'CMPUSR-001',
+        name: 'Mokhitli Logistics Partners',
+        email: 'employer@mokhitli.com',
+        role: 'employer',
+        status: 'Active'
+      },
+      {
+        id: 'CMPUSR-002',
+        name: 'Nomsa Dlamini',
+        email: 'nomsa@mokhitli.com',
+        role: 'facilitator',
+        status: 'Invited'
+      }
+    ],
+    invitations: [
+      {
+        id: 'INV-001',
+        companyId: 'ORG-001',
+        companyName: 'Mokhitli Logistics Partners',
+        recipientName: 'Nomsa Dlamini',
+        recipientEmail: 'nomsa@mokhitli.com',
+        role: 'facilitator',
+        status: 'sent',
+        sentAt: '2026-06-20T09:00:00.000Z',
+        expiresAt: '2026-07-20T09:00:00.000Z',
+        acceptanceLink: '/invite/INV-001',
+        subject: 'Invitation to join Mokhitli Logistics Partners',
+        preview: 'Hello Nomsa Dlamini, you have been invited to join Mokhitli Logistics Partners as facilitator.'
+      }
+    ]
   }
 ];
 
@@ -355,6 +418,7 @@ const parentPortal = {
 module.exports = {
   authUsers,
   users,
+  companyRegistrations,
   roles,
   qualifications,
   issuedCertificates,

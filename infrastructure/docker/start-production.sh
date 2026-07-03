@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+export NODE_PATH=/app/backend/node_modules
+
 if [ "${RUN_DB_SETUP:-true}" = "true" ]; then
   echo "Waiting for PostgreSQL..."
   node /app/infrastructure/docker/wait-for-db.js

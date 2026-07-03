@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS auth_account (
   email TEXT NOT NULL UNIQUE,
   role TEXT NOT NULL,
   default_portal TEXT NOT NULL,
+  password_hash TEXT,
   CONSTRAINT fk_auth_account_role
     FOREIGN KEY (role) REFERENCES role_definition(role_name),
   CONSTRAINT fk_auth_account_default_portal

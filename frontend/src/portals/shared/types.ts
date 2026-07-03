@@ -37,6 +37,8 @@ export interface AuthUser {
   email: string;
   role: string;
   defaultPortal: string;
+  companyId?: string;
+  companyName?: string;
 }
 
 export interface AuthSession {
@@ -152,6 +154,44 @@ export interface EmployerPortalData {
     completion: number;
   }>;
   actions: string[];
+}
+
+export interface CompanyManagementUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+}
+
+export interface CompanyInvitation {
+  id: string;
+  companyId?: string;
+  companyName?: string;
+  recipientName: string;
+  recipientEmail: string;
+  role: string;
+  status: string;
+  sentAt: string;
+  expiresAt: string;
+  acceptanceLink: string;
+  subject: string;
+  preview: string;
+  acceptedAt?: string;
+}
+
+export interface CompanyManagementData {
+  company: {
+    id: string;
+    name: string;
+    companyEmail: string;
+    industry: string;
+    requestedUsers: number;
+    status: string;
+  };
+  isCompanyAdmin: boolean;
+  users: CompanyManagementUser[];
+  invitations: CompanyInvitation[];
 }
 
 export interface ParentPortalData {

@@ -64,7 +64,7 @@ describe('Authentication', () => {
   it('should return the authenticated user session for a known role account', async () => {
     const response = await request(app)
       .post('/api/auth/login')
-      .send({ email: 'learner@mokhitli.com', password: 'password123' });
+      .send({ email: 'learner@mokhitli.com', password: 'Learner@Mokhitli2026' });
 
     expect(response.statusCode).toBe(200);
     expect(response.body).toHaveProperty('token');
@@ -77,7 +77,7 @@ describe('Authentication', () => {
   it('should return the authenticated profile via /api/auth/me', async () => {
     const loginResponse = await request(app)
       .post('/api/auth/login')
-      .send({ email: 'facilitator@mokhitli.com', password: 'password123' });
+      .send({ email: 'facilitator@mokhitli.com', password: 'Facilitator@Mokhitli2026' });
 
     const response = await request(app)
       .get('/api/auth/me')
@@ -87,6 +87,337 @@ describe('Authentication', () => {
     expect(response.body.user).toEqual(
       expect.objectContaining({ role: 'facilitator', defaultPortal: 'facilitator' })
     );
+  });
+
+  it('should register a new account and return an authenticated session', async () => {
+    const response = await request(app)
+      .post('/api/auth/register')
+      .send({
+        name: 'Lebo Molefe',
+        email: 'lebo.molefe@example.com',
+        password: 'password123',
+        role: 'learner'
+      });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.body).toHaveProperty('token');
+    expect(response.body.user).toEqual(
+      expect.objectContaining({
+        name: 'Lebo Molefe',
+        email: 'lebo.molefe@example.com',
+        role: 'learner',
+        defaultPortal: 'learner'
+      })
+    );
+  });
+
+  it('should reject registration when the email already exists', async () => {
+    const response = await request(app)
+      .post('/api/auth/register')
+      .send({
+        name: 'Duplicate User',
+        email: 'learner@mokhitli.com',
+        password: 'password123',
+        role: 'learner'
+      });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.body.error).toContain('already exists');
+  });
+
+  it('should reject weak passwords during user registration', async () => {
+    const response = await request(app)
+      .post('/api/auth/register')
+      .send({
+        name: 'Weak Password User',
+        email: 'weak.password.user@example.com',
+        password: 'password',
+        role: 'learner'
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.error).toContain('at least 8 characters');
+  });
+
+  it('should register a company and its primary employer user', async () => {
+    const response = await request(app)
+      .post('/api/auth/register-company')
+      .send({
+        companyName: 'Blue Crane Logistics',
+        companyEmail: 'contact@bluecrane.example.com',
+        adminName: 'Kabelo Ndlovu',
+        adminEmail: 'kabelo.ndlovu@bluecrane.example.com',
+        password: 'password123',
+        industry: 'Logistics',
+        requestedUsers: 24,
+        invitedUsers: [
+          {
+            name: 'Lerato Mokoena',
+            email: 'lerato.mokoena@bluecrane.example.com',
+            role: 'learner'
+          },
+          {
+            name: 'Sipho Dlamini',
+            email: 'sipho.dlamini@bluecrane.example.com',
+            role: 'facilitator'
+          }
+        ]
+      });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.body).toHaveProperty('token');
+    expect(response.body).toHaveProperty('company');
+    expect(response.body.user).toEqual(
+      expect.objectContaining({
+        name: 'Kabelo Ndlovu',
+        email: 'kabelo.ndlovu@bluecrane.example.com',
+        role: 'employer',
+        defaultPortal: 'employer'
+      })
+    );
+    expect(response.body.company).toEqual(
+      expect.objectContaining({
+        name: 'Blue Crane Logistics',
+        companyEmail: 'contact@bluecrane.example.com',
+        requestedUsers: 24
+      })
+    );
+    expect(response.body.company.invitations).toHaveLength(2);
+    expect(response.body.company.users).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ email: 'kabelo.ndlovu@bluecrane.example.com', status: 'Active' }),
+        expect.objectContaining({ email: 'lerato.mokoena@bluecrane.example.com', status: 'Invited' })
+      ])
+    );
+  });
+
+  it('should reject duplicate company registration', async () => {
+    const response = await request(app)
+      .post('/api/auth/register-company')
+      .send({
+        companyName: 'Mokhitli Logistics Partners',
+        companyEmail: 'partners@mokhitli.com',
+        adminName: 'Existing Admin',
+        adminEmail: 'new-admin@mokhitli.com',
+        password: 'password123',
+        industry: 'Logistics',
+        requestedUsers: 12
+      });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.body.error).toContain('already registered');
+  });
+
+  it('should reject weak passwords during company registration', async () => {
+    const response = await request(app)
+      .post('/api/auth/register-company')
+      .send({
+        companyName: 'Weak Password Logistics',
+        companyEmail: 'weak-password-logistics@example.com',
+        adminName: 'Weak Admin',
+        adminEmail: 'weak-admin@example.com',
+        password: 'password',
+        industry: 'Logistics',
+        requestedUsers: 6
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.error).toContain('at least 8 characters');
+  });
+
+  it('should expose company management data for an authenticated employer', async () => {
+    const loginResponse = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'employer@mokhitli.com', password: 'Employer@Mokhitli2026' });
+
+    const response = await request(app)
+      .get('/api/workplace-learning/company-management')
+      .set('Authorization', `Bearer ${loginResponse.body.token}`);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.company).toEqual(
+      expect.objectContaining({ name: 'Mokhitli Logistics Partners' })
+    );
+    expect(response.body.isCompanyAdmin).toBe(true);
+    expect(Array.isArray(response.body.users)).toBe(true);
+    expect(Array.isArray(response.body.invitations)).toBe(true);
+  });
+
+  it('should allow an authenticated employer to invite more company users', async () => {
+    const loginResponse = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'employer@mokhitli.com', password: 'Employer@Mokhitli2026' });
+
+    const response = await request(app)
+      .post('/api/workplace-learning/company-management/users/invite')
+      .set('Authorization', `Bearer ${loginResponse.body.token}`)
+      .send({
+        invitedUsers: [
+          {
+            name: 'Ayanda Nkosi',
+            email: 'ayanda.nkosi@mokhitli.com',
+            role: 'assessor'
+          }
+        ]
+      });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.body.invitations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          recipientEmail: 'ayanda.nkosi@mokhitli.com',
+          role: 'assessor',
+          status: 'sent'
+        })
+      ])
+    );
+  });
+
+  it('should expose invitation details through the public invitation endpoint', async () => {
+    const response = await request(app).get('/api/auth/invitations/INV-001');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.invitation).toEqual(
+      expect.objectContaining({
+        id: 'INV-001',
+        recipientEmail: 'nomsa@mokhitli.com'
+      })
+    );
+    expect(response.body.company).toEqual(
+      expect.objectContaining({ name: 'Mokhitli Logistics Partners' })
+    );
+  });
+
+  it('should accept an invitation and return an authenticated session', async () => {
+    const registrationResponse = await request(app)
+      .post('/api/auth/register-company')
+      .send({
+        companyName: 'Forward Freight',
+        companyEmail: 'hello@forwardfreight.example.com',
+        adminName: 'Mpho Maseko',
+        adminEmail: 'mpho@forwardfreight.example.com',
+        password: 'password123',
+        industry: 'Freight',
+        requestedUsers: 8,
+        invitedUsers: [
+          {
+            name: 'Tumi Nene',
+            email: 'tumi@forwardfreight.example.com',
+            role: 'learner'
+          }
+        ]
+      });
+
+    const invitationId = registrationResponse.body.company.invitations[0].id;
+
+    const response = await request(app)
+      .post(`/api/auth/invitations/${invitationId}/accept`)
+      .send({ password: 'password123' });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toHaveProperty('token');
+    expect(response.body.user).toEqual(
+      expect.objectContaining({
+        email: 'tumi@forwardfreight.example.com',
+        role: 'learner',
+        companyName: 'Forward Freight'
+      })
+    );
+    expect(response.body.invitation.status).toBe('accepted');
+  });
+
+  it('should reject weak passwords when accepting an invitation', async () => {
+    const registrationResponse = await request(app)
+      .post('/api/auth/register-company')
+      .send({
+        companyName: 'Invitation Password Guard',
+        companyEmail: 'invitation-password-guard@example.com',
+        adminName: 'Secure Admin',
+        adminEmail: 'secure-admin@example.com',
+        password: 'Strong@Pass123',
+        industry: 'Logistics',
+        requestedUsers: 3,
+        invitedUsers: [
+          {
+            name: 'Weak Invitee',
+            email: 'weak-invitee@example.com',
+            role: 'learner'
+          }
+        ]
+      });
+
+    const invitationId = registrationResponse.body.company.invitations[0].id;
+
+    const response = await request(app)
+      .post(`/api/auth/invitations/${invitationId}/accept`)
+      .send({ password: 'password' });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.error).toContain('at least 8 characters');
+  });
+
+  it('should resend and cancel an invitation from company management', async () => {
+    const loginResponse = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'employer@mokhitli.com', password: 'Employer@Mokhitli2026' });
+
+    const resendResponse = await request(app)
+      .post('/api/workplace-learning/company-management/invitations/INV-001/resend')
+      .set('Authorization', `Bearer ${loginResponse.body.token}`);
+
+    expect(resendResponse.statusCode).toBe(200);
+    expect(resendResponse.body.invitation).toEqual(
+      expect.objectContaining({
+        id: 'INV-001',
+        status: 'sent'
+      })
+    );
+
+    const cancelResponse = await request(app)
+      .post('/api/workplace-learning/company-management/invitations/INV-001/cancel')
+      .set('Authorization', `Bearer ${loginResponse.body.token}`);
+
+    expect(cancelResponse.statusCode).toBe(200);
+    expect(cancelResponse.body.invitation).toEqual(
+      expect.objectContaining({
+        id: 'INV-001',
+        status: 'cancelled'
+      })
+    );
+  });
+
+  it('should block non-admin company members from managing invitations', async () => {
+    const registrationResponse = await request(app)
+      .post('/api/auth/register-company')
+      .send({
+        companyName: 'Admin Guard Logistics',
+        companyEmail: 'contact@adminguard.example.com',
+        adminName: 'Nandi Khumalo',
+        adminEmail: 'nandi@adminguard.example.com',
+        password: 'password123',
+        industry: 'Logistics',
+        requestedUsers: 5,
+        invitedUsers: [
+          {
+            name: 'Chris Motaung',
+            email: 'chris@adminguard.example.com',
+            role: 'facilitator'
+          }
+        ]
+      });
+
+    const invitationId = registrationResponse.body.company.invitations[0].id;
+
+    const acceptanceResponse = await request(app)
+      .post(`/api/auth/invitations/${invitationId}/accept`)
+      .send({ password: 'password123' });
+
+    const response = await request(app)
+      .get('/api/workplace-learning/company-management')
+      .set('Authorization', `Bearer ${acceptanceResponse.body.token}`);
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body.error).toContain('Only employer admins');
   });
 });
 

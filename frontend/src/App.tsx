@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { portalRegistry } from './portals';
 import PortalShell from './portals/shared/layouts/PortalShell';
 import type { AuthSession, DashboardData } from './portals/shared/types';
+import InvitationAcceptancePage from './pages/InvitationAcceptancePage';
 import Login from './pages/Login';
 import api from './services/api';
 
@@ -33,6 +34,10 @@ function getStoredAuthSession(): AuthSession | null {
 
 function getPortalRoute(portalId: string) {
   return portalRegistry.find((portal) => portal.id === portalId)?.routePrefix || '/';
+}
+
+function isPortalSubRoute(pathname: string, routePrefix: string) {
+  return pathname === routePrefix || pathname.startsWith(`${routePrefix}/`);
 }
 
 function getAllowedPortals(role: string) {
@@ -167,10 +172,14 @@ export default function App() {
       return;
     }
 
-    if (window.location.pathname !== activePortal.routePrefix) {
+    if (!isPortalSubRoute(window.location.pathname, activePortal.routePrefix)) {
       window.history.pushState({}, '', activePortal.routePrefix);
     }
   }, [activePortal, authSession]);
+
+  if (!authSession && window.location.pathname.startsWith('/invite/')) {
+    return <InvitationAcceptancePage onAccept={handleLogin} />;
+  }
 
   if (!authSession) {
     return <Login onLogin={handleLogin} />;
