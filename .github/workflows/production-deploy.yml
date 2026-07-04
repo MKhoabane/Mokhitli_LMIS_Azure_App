@@ -129,7 +129,7 @@ jobs:
 
           case "$WEBAPP_NAME" in
             -*|*-) echo "AZURE_WEBAPP_NAME cannot start or end with a hyphen: $WEBAPP_NAME"; exit 1 ;;
-            *[!a-z0-9-]*) echo "AZURE_WEBAPP_NAME must use only lowercase letters, numbers, and hyphens: $WEBAPP_NAME"; exit 1 ;;
+            *[!A-Za-z0-9-]*) echo "AZURE_WEBAPP_NAME must use only letters, numbers, and hyphens: $WEBAPP_NAME"; exit 1 ;;
           esac
 
           if [ "${#WEBAPP_NAME}" -lt 2 ] || [ "${#WEBAPP_NAME}" -gt 60 ]; then
