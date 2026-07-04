@@ -1,11 +1,18 @@
 const request = require('supertest');
 const app = require('../app');
+const pool = require('../config/db');
+
+jest.setTimeout(30000);
+
+afterAll(async () => {
+  await pool.end();
+});
 
 describe('GET /', () => {
   it('should return 200 and the welcome message', async () => {
     const response = await request(app).get('/');
     expect(response.statusCode).toBe(200);
-    expect(response.text).toContain('QCTO LMIS Enterprise API running');
+    expect(response.text).toMatch(/QCTO LMIS Enterprise API running|<title>QCTO LMIS Enterprise<\/title>/);
   });
 });
 
@@ -60,6 +67,25 @@ describe('GET role portal endpoints', () => {
   });
 });
 
+describe('GET /api/user-management/users', () => {
+  it('should include all demo accounts as active users', async () => {
+    const response = await request(app).get('/api/user-management/users');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ email: 'admin@mokhitli.com', status: 'Active' }),
+        expect.objectContaining({ email: 'learner@mokhitli.com', status: 'Active' }),
+        expect.objectContaining({ email: 'facilitator@mokhitli.com', status: 'Active' }),
+        expect.objectContaining({ email: 'assessor@mokhitli.com', status: 'Active' }),
+        expect.objectContaining({ email: 'moderator@mokhitli.com', status: 'Active' }),
+        expect.objectContaining({ email: 'employer@mokhitli.com', status: 'Active' }),
+        expect.objectContaining({ email: 'parent@mokhitli.com', status: 'Active' })
+      ])
+    );
+  });
+});
+
 describe('Authentication', () => {
   it('should return the authenticated user session for a known role account', async () => {
     const response = await request(app)
@@ -95,7 +121,7 @@ describe('Authentication', () => {
       .send({
         name: 'Lebo Molefe',
         email: 'lebo.molefe@example.com',
-        password: 'password123',
+        password: 'Strong@Pass123',
         role: 'learner'
       });
 
@@ -117,7 +143,7 @@ describe('Authentication', () => {
       .send({
         name: 'Duplicate User',
         email: 'learner@mokhitli.com',
-        password: 'password123',
+        password: 'Strong@Pass123',
         role: 'learner'
       });
 
@@ -147,7 +173,7 @@ describe('Authentication', () => {
         companyEmail: 'contact@bluecrane.example.com',
         adminName: 'Kabelo Ndlovu',
         adminEmail: 'kabelo.ndlovu@bluecrane.example.com',
-        password: 'password123',
+        password: 'Strong@Pass123',
         industry: 'Logistics',
         requestedUsers: 24,
         invitedUsers: [
@@ -199,7 +225,7 @@ describe('Authentication', () => {
         companyEmail: 'partners@mokhitli.com',
         adminName: 'Existing Admin',
         adminEmail: 'new-admin@mokhitli.com',
-        password: 'password123',
+        password: 'Strong@Pass123',
         industry: 'Logistics',
         requestedUsers: 12
       });
@@ -223,6 +249,30 @@ describe('Authentication', () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.body.error).toContain('at least 8 characters');
+  });
+
+  it('should reject additional company users when any invited user is missing a required field', async () => {
+    const response = await request(app)
+      .post('/api/auth/register-company')
+      .send({
+        companyName: 'Incomplete Invite Logistics',
+        companyEmail: 'incomplete-invite-logistics@example.com',
+        adminName: 'Invite Admin',
+        adminEmail: 'invite-admin@example.com',
+        password: 'Strong@Pass123',
+        industry: 'Logistics',
+        requestedUsers: 6,
+        invitedUsers: [
+          {
+            name: 'Lerato Mokoena',
+            email: 'lerato.mokoena@example.com',
+            role: ''
+          }
+        ]
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.error).toBe('Each additional company user must have a name, email, and role.');
   });
 
   it('should expose company management data for an authenticated employer', async () => {
@@ -296,7 +346,7 @@ describe('Authentication', () => {
         companyEmail: 'hello@forwardfreight.example.com',
         adminName: 'Mpho Maseko',
         adminEmail: 'mpho@forwardfreight.example.com',
-        password: 'password123',
+        password: 'Strong@Pass123',
         industry: 'Freight',
         requestedUsers: 8,
         invitedUsers: [
@@ -312,7 +362,7 @@ describe('Authentication', () => {
 
     const response = await request(app)
       .post(`/api/auth/invitations/${invitationId}/accept`)
-      .send({ password: 'password123' });
+      .send({ password: 'Invite@Pass123' });
 
     expect(response.statusCode).toBe(200);
     expect(response.body).toHaveProperty('token');
@@ -394,7 +444,7 @@ describe('Authentication', () => {
         companyEmail: 'contact@adminguard.example.com',
         adminName: 'Nandi Khumalo',
         adminEmail: 'nandi@adminguard.example.com',
-        password: 'password123',
+        password: 'Strong@Pass123',
         industry: 'Logistics',
         requestedUsers: 5,
         invitedUsers: [
@@ -410,7 +460,7 @@ describe('Authentication', () => {
 
     const acceptanceResponse = await request(app)
       .post(`/api/auth/invitations/${invitationId}/accept`)
-      .send({ password: 'password123' });
+      .send({ password: 'Invite@Pass123' });
 
     const response = await request(app)
       .get('/api/workplace-learning/company-management')

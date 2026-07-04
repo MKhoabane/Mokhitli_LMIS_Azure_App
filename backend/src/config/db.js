@@ -20,7 +20,7 @@ function getSslConfig() {
 const connectionString = process.env.DATABASE_URL;
 const ssl = getSslConfig();
 
-module.exports = new Pool(
+const pool = new Pool(
   connectionString
     ? {
         connectionString,
@@ -35,3 +35,5 @@ module.exports = new Pool(
         ...(ssl ? { ssl } : {})
       }
 );
+
+module.exports = pool;
