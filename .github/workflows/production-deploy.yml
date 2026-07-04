@@ -41,7 +41,7 @@ jobs:
         id: resolve
         run: |
           IMAGE_TAG="${{ inputs.release_image_tag }}"
-          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/qcto-lmis-app"
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/qcto-lmis-azure-app"
 
           case "$IMAGE_TAG" in
             sha-*) ;;
