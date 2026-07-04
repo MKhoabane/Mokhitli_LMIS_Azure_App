@@ -62,6 +62,21 @@ az webapp create `
   --plan $PlanName `
   --deployment-container-image-name $ContainerImage | Out-Null
 
+Write-Host "Applying baseline App Service settings..."
+$baselineSettings = @(
+  "WEBSITES_PORT=5000",
+  "PORT=5000",
+  "NODE_ENV=production",
+  "APP_ENV=production",
+  "TRUST_PROXY=true",
+  "RUN_DB_SETUP=false"
+)
+
+az webapp config appsettings set `
+  --name $ResolvedWebAppName `
+  --resource-group $ResourceGroup `
+  --settings $baselineSettings | Out-Null
+
 if (Test-Path $AppSettingsFile) {
   Write-Host "Applying app settings from $AppSettingsFile..."
   $settings = Get-Content $AppSettingsFile |
@@ -80,6 +95,6 @@ Write-Host "Enabling Always On..."
 az webapp config set `
   --name $ResolvedWebAppName `
   --resource-group $ResourceGroup `
-  --generic-configurations '{"alwaysOn": true}' | Out-Null
+  --generic-configurations '{"alwaysOn": true,"healthCheckPath":"/api/health"}' | Out-Null
 
 Write-Host "Azure App Service deployment configuration completed for $ResolvedWebAppName."

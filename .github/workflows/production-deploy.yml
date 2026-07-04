@@ -118,12 +118,41 @@ jobs:
       needs.verify-production-migrations-azure.result == 'success' &&
       (inputs.deploy_target == 'azure' || inputs.deploy_target == 'all')
     steps:
-      - name: Validate production App Service name
+      - name: Validate production Azure deployment inputs
         env:
           WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
+          RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          BASE_URL: ${{ secrets.PRODUCTION_AZURE_BASE_URL }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+          PGHOST: ${{ secrets.PRODUCTION_AZURE_DB_HOST }}
+          PGPORT: ${{ secrets.PRODUCTION_AZURE_DB_PORT }}
+          PGDATABASE: ${{ secrets.PRODUCTION_AZURE_DB_NAME }}
+          PGUSER: ${{ secrets.PRODUCTION_AZURE_DB_USER }}
+          PGPASSWORD: ${{ secrets.PRODUCTION_AZURE_DB_PASSWORD }}
         run: |
           if [ -z "$WEBAPP_NAME" ]; then
             echo "AZURE_WEBAPP_NAME is required."
+            exit 1
+          fi
+
+          if [ -z "$RESOURCE_GROUP" ]; then
+            echo "AZURE_RESOURCE_GROUP is required."
+            exit 1
+          fi
+
+          if [ -z "$BASE_URL" ]; then
+            echo "PRODUCTION_AZURE_BASE_URL is required."
+            exit 1
+          fi
+
+          if [ -z "$GHCR_USERNAME" ] || [ -z "$GHCR_READ_TOKEN" ]; then
+            echo "GHCR_USERNAME and GHCR_READ_TOKEN are required for Azure container pulls."
+            exit 1
+          fi
+
+          if [ -z "$PGHOST" ] || [ -z "$PGPORT" ] || [ -z "$PGDATABASE" ] || [ -z "$PGUSER" ] || [ -z "$PGPASSWORD" ]; then
+            echo "Production Azure PostgreSQL secrets are required for App Service runtime configuration."
             exit 1
           fi
 
@@ -151,24 +180,57 @@ jobs:
             --container-registry-user "${{ secrets.GHCR_USERNAME }}" \
             --container-registry-password "${{ secrets.GHCR_READ_TOKEN }}"
 
-      - name: Set production release metadata
-        run: |
-          az webapp config appsettings set \
-            --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
-            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --settings \
-              APP_ENV=production \
-              RELEASE_VERSION=${{ needs.resolve-image.outputs.image_tag }}
-
-      - name: Apply optional production app settings
+      - name: Configure production App Service runtime settings
         env:
+          BASE_URL: ${{ secrets.PRODUCTION_AZURE_BASE_URL }}
           OPTIONAL_APP_SETTINGS: ${{ secrets.AZURE_APP_SETTINGS }}
-        if: ${{ env.OPTIONAL_APP_SETTINGS != '' }}
+          PGHOST: ${{ secrets.PRODUCTION_AZURE_DB_HOST }}
+          PGPORT: ${{ secrets.PRODUCTION_AZURE_DB_PORT }}
+          PGDATABASE: ${{ secrets.PRODUCTION_AZURE_DB_NAME }}
+          PGUSER: ${{ secrets.PRODUCTION_AZURE_DB_USER }}
+          PGPASSWORD: ${{ secrets.PRODUCTION_AZURE_DB_PASSWORD }}
         run: |
+          set -eu
+
+          SETTINGS=(
+            "WEBSITES_PORT=5000"
+            "PORT=5000"
+            "NODE_ENV=production"
+            "APP_ENV=production"
+            "APP_BASE_URL=$BASE_URL"
+            "CORS_ORIGIN=$BASE_URL"
+            "TRUST_PROXY=true"
+            "RUN_DB_SETUP=false"
+            "DB_SSL=no-verify"
+            "PGHOST=$PGHOST"
+            "PGPORT=$PGPORT"
+            "PGDATABASE=$PGDATABASE"
+            "PGUSER=$PGUSER"
+            "PGPASSWORD=$PGPASSWORD"
+            "RELEASE_VERSION=${{ needs.resolve-image.outputs.image_tag }}"
+          )
+
+          if [ -n "$OPTIONAL_APP_SETTINGS" ]; then
+            while IFS= read -r setting; do
+              setting="${setting#"${setting%%[![:space:]]*}"}"
+              setting="${setting%"${setting##*[![:space:]]}"}"
+              if [ -n "$setting" ]; then
+                SETTINGS+=("$setting")
+              fi
+            done < <(printf '%s\n' "$OPTIONAL_APP_SETTINGS" | tr ' ' '\n')
+          fi
+
           az webapp config appsettings set \
             --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
             --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --settings "$OPTIONAL_APP_SETTINGS"
+            --settings "${SETTINGS[@]}"
+
+      - name: Configure production App Service health check
+        run: |
+          az webapp config set \
+            --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --generic-configurations '{"healthCheckPath":"/api/health"}'
 
       - name: Restart production App Service
         run: |

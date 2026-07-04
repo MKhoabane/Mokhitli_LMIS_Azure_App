@@ -108,12 +108,31 @@ jobs:
         (github.event_name == 'workflow_dispatch' && (inputs.deploy_target == 'azure' || inputs.deploy_target == 'all'))
       )
     steps:
-      - name: Validate staging App Service name
+      - name: Validate staging Azure deployment inputs
         env:
           WEBAPP_NAME: ${{ secrets.STAGING_AZURE_WEBAPP_NAME }}
+          RESOURCE_GROUP: ${{ secrets.STAGING_AZURE_RESOURCE_GROUP }}
+          BASE_URL: ${{ secrets.STAGING_AZURE_BASE_URL }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
         run: |
           if [ -z "$WEBAPP_NAME" ]; then
             echo "STAGING_AZURE_WEBAPP_NAME is required."
+            exit 1
+          fi
+
+          if [ -z "$RESOURCE_GROUP" ]; then
+            echo "STAGING_AZURE_RESOURCE_GROUP is required."
+            exit 1
+          fi
+
+          if [ -z "$BASE_URL" ]; then
+            echo "STAGING_AZURE_BASE_URL is required."
+            exit 1
+          fi
+
+          if [ -z "$GHCR_USERNAME" ] || [ -z "$GHCR_READ_TOKEN" ]; then
+            echo "GHCR_USERNAME and GHCR_READ_TOKEN are required for Azure container pulls."
             exit 1
           fi
 
@@ -141,24 +160,45 @@ jobs:
             --container-registry-user "${{ secrets.GHCR_USERNAME }}" \
             --container-registry-password "${{ secrets.GHCR_READ_TOKEN }}"
 
-      - name: Set staging release metadata
-        run: |
-          az webapp config appsettings set \
-            --name "${{ secrets.STAGING_AZURE_WEBAPP_NAME }}" \
-            --resource-group "${{ secrets.STAGING_AZURE_RESOURCE_GROUP }}" \
-            --settings \
-              APP_ENV=staging \
-              RELEASE_VERSION=${{ needs.build-and-push.outputs.image_tag }}
-
-      - name: Apply optional staging app settings
+      - name: Configure staging App Service runtime settings
         env:
+          BASE_URL: ${{ secrets.STAGING_AZURE_BASE_URL }}
           OPTIONAL_APP_SETTINGS: ${{ secrets.STAGING_AZURE_APP_SETTINGS }}
-        if: ${{ env.OPTIONAL_APP_SETTINGS != '' }}
         run: |
+          set -eu
+
+          SETTINGS=(
+            "WEBSITES_PORT=5000"
+            "PORT=5000"
+            "NODE_ENV=production"
+            "APP_ENV=staging"
+            "APP_BASE_URL=$BASE_URL"
+            "CORS_ORIGIN=$BASE_URL"
+            "TRUST_PROXY=true"
+            "RELEASE_VERSION=${{ needs.build-and-push.outputs.image_tag }}"
+          )
+
+          if [ -n "$OPTIONAL_APP_SETTINGS" ]; then
+            while IFS= read -r setting; do
+              setting="${setting#"${setting%%[![:space:]]*}"}"
+              setting="${setting%"${setting##*[![:space:]]}"}"
+              if [ -n "$setting" ]; then
+                SETTINGS+=("$setting")
+              fi
+            done < <(printf '%s\n' "$OPTIONAL_APP_SETTINGS" | tr ' ' '\n')
+          fi
+
           az webapp config appsettings set \
             --name "${{ secrets.STAGING_AZURE_WEBAPP_NAME }}" \
             --resource-group "${{ secrets.STAGING_AZURE_RESOURCE_GROUP }}" \
-            --settings "$OPTIONAL_APP_SETTINGS"
+            --settings "${SETTINGS[@]}"
+
+      - name: Configure staging App Service health check
+        run: |
+          az webapp config set \
+            --name "${{ secrets.STAGING_AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.STAGING_AZURE_RESOURCE_GROUP }}" \
+            --generic-configurations '{"healthCheckPath":"/api/health"}'
 
       - name: Restart staging App Service
         run: |

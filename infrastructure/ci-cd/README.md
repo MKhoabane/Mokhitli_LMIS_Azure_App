@@ -66,12 +66,12 @@ Recommended release approval model:
 
 - `AZURE_CREDENTIALS`: service principal JSON for `azure/login`
 - `STAGING_AZURE_RESOURCE_GROUP`: staging resource group
-- `STAGING_AZURE_WEBAPP_NAME`: staging App Service name, using only lowercase letters, numbers, and hyphens
-- `STAGING_AZURE_APP_SETTINGS`: optional staging app settings
+- `STAGING_AZURE_WEBAPP_NAME`: staging App Service name, using only letters, numbers, and hyphens
+- `STAGING_AZURE_APP_SETTINGS`: optional staging app settings, provided as one `KEY=VALUE` pair per line
 - `STAGING_AZURE_BASE_URL`: staging site base URL for smoke tests
 - `AZURE_RESOURCE_GROUP`: target resource group
-- `AZURE_WEBAPP_NAME`: target App Service name, using only lowercase letters, numbers, and hyphens
-- `AZURE_APP_SETTINGS`: optional space-separated `KEY=VALUE` pairs for app settings
+- `AZURE_WEBAPP_NAME`: target App Service name, using only letters, numbers, and hyphens
+- `AZURE_APP_SETTINGS`: optional production app settings, provided as one `KEY=VALUE` pair per line
 - `PRODUCTION_AZURE_BASE_URL`: production site base URL for smoke tests
 - `PRODUCTION_AZURE_DB_HOST`: production PostgreSQL host for migration gating
 - `PRODUCTION_AZURE_DB_PORT`: production PostgreSQL port for migration gating
@@ -130,6 +130,11 @@ Example Azure App Service values:
 - `AZURE_RESOURCE_GROUP=LMIS`
 - `AZURE_WEBAPP_NAME=mokhitli-lmis-full-system`
 - `PRODUCTION_AZURE_BASE_URL=https://mokhitli-lmis-full-system.azurewebsites.net`
+- `AZURE_APP_SETTINGS` should usually contain only values that are not already injected by the workflow, for example:
+
+```text
+JWT_SECRET=replace-with-a-long-random-secret
+```
 
 ## Manual Runs
 

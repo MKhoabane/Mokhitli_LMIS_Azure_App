@@ -11,7 +11,7 @@ This folder contains Azure App Service deployment assets for the production LMIS
 
 Azure App Service names are used in the default `azurewebsites.net` hostname, so they must use:
 
-- lowercase letters
+- letters
 - numbers
 - hyphens
 
@@ -36,8 +36,8 @@ pwsh -File .\infrastructure\azure\deploy-webapp.ps1 `
   -ResourceGroup LMIS `
   -Location southafricanorth `
   -PlanName mokhitli-lmis-plan `
-  -WebAppName Mokhitli_LMIS_Full_System `
+  -WebAppName MokhitliLMISFullSystem `
   -ContainerImage ghcr.io/mkhoabane/qcto-lmis-app:latest
 ```
 
-The script will normalize `Mokhitli_LMIS_Full_System` to `mokhitli-lmis-full-system` before creating the App Service.
+The script will normalize invalid characters such as underscores before creating the App Service.
