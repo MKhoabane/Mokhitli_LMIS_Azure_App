@@ -101,6 +101,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-push
     environment: staging
+    permissions:
+      id-token: write
+      contents: read
     if: >
       needs.build-and-push.result == 'success' &&
       (
@@ -148,7 +151,9 @@ jobs:
 
       - uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_EAD20069B55244A3B5653E73BE85EB9C }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_91796F4250E34432B9CCB01F79AD25E8 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8F2D3858BED04DC39FEDCBBDAB7D9AC7 }}
 
       - name: Point staging App Service at the new container image
         run: |
