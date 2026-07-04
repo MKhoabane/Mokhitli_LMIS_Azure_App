@@ -4,7 +4,8 @@ GitHub Actions automation lives in:
 
 - `.github/workflows/staging-deploy.yml`
 - `.github/workflows/production-deploy.yml`
-- `.github/workflows/tag-release.yml`
+- `.github/workflows/release-from-tag.yml`
+- `.github/workflows/tag-release.yml` (legacy stub)
 
 ## GitHub Environments
 
@@ -49,10 +50,10 @@ Recommended release approval model:
 ### Tagged Releases
 
 1. Push a tag like `v1.0.0`
-2. Run `.github/workflows/tag-release.yml`
+2. Run `.github/workflows/release-from-tag.yml`
 3. Generate release notes from the tag range
-4. Open an automated pull request that updates `CHANGELOG.md`
-5. Publish a GitHub Release using the generated notes
+4. Publish a GitHub Release using the generated notes
+5. Optionally reintroduce changelog PR automation after the release workflow path is fully stable
 
 ## Required Secrets
 
@@ -65,11 +66,11 @@ Recommended release approval model:
 
 - `AZURE_CREDENTIALS`: service principal JSON for `azure/login`
 - `STAGING_AZURE_RESOURCE_GROUP`: staging resource group
-- `STAGING_AZURE_WEBAPP_NAME`: staging App Service name
+- `STAGING_AZURE_WEBAPP_NAME`: staging App Service name, using only lowercase letters, numbers, and hyphens
 - `STAGING_AZURE_APP_SETTINGS`: optional staging app settings
 - `STAGING_AZURE_BASE_URL`: staging site base URL for smoke tests
 - `AZURE_RESOURCE_GROUP`: target resource group
-- `AZURE_WEBAPP_NAME`: target App Service name
+- `AZURE_WEBAPP_NAME`: target App Service name, using only lowercase letters, numbers, and hyphens
 - `AZURE_APP_SETTINGS`: optional space-separated `KEY=VALUE` pairs for app settings
 - `PRODUCTION_AZURE_BASE_URL`: production site base URL for smoke tests
 - `PRODUCTION_AZURE_DB_HOST`: production PostgreSQL host for migration gating
@@ -102,6 +103,33 @@ Recommended release approval model:
 
 - `DEPLOY_STAGING_TO_AZURE`: set to `true` to auto-deploy Azure staging on pushes to `master`
 - `DEPLOY_STAGING_TO_VPS`: set to `true` to auto-deploy VPS staging on pushes to `master`
+
+## Import-Ready Templates
+
+Use the files under `infrastructure/ci-cd/github/`:
+
+- `staging.secrets.env.example`
+- `production.secrets.env.example`
+- `repository.variables.env.example`
+- `import-environment-secrets.ps1`
+- `import-repository-variables.ps1`
+
+Suggested flow:
+
+1. Copy each `*.example` file to a real local file that is not committed
+2. Fill in real values
+3. Import staging secrets:
+   `pwsh -File infrastructure/ci-cd/github/import-environment-secrets.ps1 -EnvironmentName staging -EnvFilePath .\staging.secrets.env`
+4. Import production secrets:
+   `pwsh -File infrastructure/ci-cd/github/import-environment-secrets.ps1 -EnvironmentName production -EnvFilePath .\production.secrets.env`
+5. Import repository variables:
+   `pwsh -File infrastructure/ci-cd/github/import-repository-variables.ps1 -EnvFilePath .\repository.variables.env`
+
+Example Azure App Service values:
+
+- `AZURE_RESOURCE_GROUP=LMIS`
+- `AZURE_WEBAPP_NAME=mokhitli-lmis-full-system`
+- `PRODUCTION_AZURE_BASE_URL=https://mokhitli-lmis-full-system.azurewebsites.net`
 
 ## Manual Runs
 
@@ -140,4 +168,4 @@ Push a tag such as:
 - The pipeline deploys immutable `sha-<commit>` images to keep releases traceable
 - Rollback is done by manually running `production-deploy.yml` with `release_action=rollback` and a previous `sha-<commit>` tag
 - Production deployment is blocked until the selected target database passes `backend/scripts/checkMigrationsApplied.js`
-- Tagged releases now open a changelog pull request instead of pushing directly to the protected default branch
+- Tagged releases are now handled by `.github/workflows/release-from-tag.yml`
