@@ -43,7 +43,7 @@ function createCompanyUserDraft(): CompanyUserDraft {
   return {
     name: '',
     email: '',
-    role: 'learner'
+    role: ''
   };
 }
 
@@ -585,6 +585,9 @@ export default function Login({ onLogin }: LoginProps) {
                             onChange={(e) => updateCompanyUser(index, 'role', e.target.value)}
                             className="block w-full rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-blue focus:border-transparent sm:text-sm"
                           >
+                            <option value="" disabled>
+                              Select role
+                            </option>
                             {ROLE_OPTIONS.filter((roleOption) => roleOption.value !== 'admin').map((roleOption) => (
                               <option key={roleOption.value} value={roleOption.value}>
                                 {roleOption.label}
@@ -643,7 +646,7 @@ export default function Login({ onLogin }: LoginProps) {
               </div>
             )}
 
-            {(mode === 'register-user' || mode === 'register-company') && (
+            {(mode === 'login' || mode === 'register-user' || mode === 'register-company') && (
               <div>
                 <label htmlFor={mode === 'login' ? 'password' : 'register-password'} className="block text-sm font-semibold text-slate-700">
                   Password

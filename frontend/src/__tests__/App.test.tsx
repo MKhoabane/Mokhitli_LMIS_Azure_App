@@ -27,19 +27,13 @@ describe('App', () => {
     render(<App />);
     expect(screen.getByText(/QCTO Learner Management System/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Access Portal/i })).toBeInTheDocument();
-    expect(screen.getByText(/Active/i)).toBeInTheDocument();
-  });
-
-  it('shows a registration place for new users on the auth screen', () => {
-    render(<App />);
-    expect(screen.getByRole('button', { name: /Register User/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Register Company/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sign In/i })).toBeInTheDocument();
   });
 
   it('allows the login password to be shown before sign in', () => {
     render(<App />);
 
-    const passwordInput = screen.getByLabelText(/Password/i);
+    const passwordInput = screen.getByLabelText(/^Password$/i, { selector: 'input' });
     expect(passwordInput).toHaveAttribute('type', 'password');
 
     fireEvent.click(screen.getByRole('button', { name: /Show password/i }));
@@ -54,13 +48,13 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Register User/i }));
 
-    const registrationPasswordInput = screen.getByLabelText(/^Password$/i);
+    const registrationPasswordInput = screen.getByLabelText(/^Password$/i, { selector: 'input' });
     expect(registrationPasswordInput).toHaveAttribute('type', 'password');
 
     fireEvent.click(screen.getByRole('button', { name: /Show registration password/i }));
     expect(registrationPasswordInput).toHaveAttribute('type', 'text');
 
-    const confirmPasswordInput = screen.getByLabelText(/Confirm Password/i);
+    const confirmPasswordInput = screen.getByLabelText(/^Confirm Password$/i, { selector: 'input' });
     expect(confirmPasswordInput).toHaveAttribute('type', 'password');
 
     fireEvent.click(screen.getByRole('button', { name: /Show confirm password/i }));
@@ -70,15 +64,15 @@ describe('App', () => {
   it('allows company admin passwords to be shown before submitting', () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Register Company/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Register Company$/i }));
 
-    const adminPasswordInput = screen.getByLabelText(/Admin Password/i);
+    const adminPasswordInput = screen.getByLabelText(/^Admin Password$/i, { selector: 'input' });
     expect(adminPasswordInput).toHaveAttribute('type', 'password');
 
     fireEvent.click(screen.getByRole('button', { name: /Show admin password/i }));
     expect(adminPasswordInput).toHaveAttribute('type', 'text');
 
-    const confirmAdminPasswordInput = screen.getByLabelText(/Confirm Admin Password/i);
+    const confirmAdminPasswordInput = screen.getByLabelText(/^Confirm Admin Password$/i, { selector: 'input' });
     expect(confirmAdminPasswordInput).toHaveAttribute('type', 'password');
 
     fireEvent.click(screen.getByRole('button', { name: /Show confirm admin password/i }));
@@ -88,15 +82,19 @@ describe('App', () => {
   it('blocks weak passwords before submitting registration', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Register User/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Register User$/i }));
     fireEvent.change(screen.getByLabelText(/Full Name/i), { target: { value: 'Weak Password User' } });
     fireEvent.change(screen.getByLabelText(/Email Address/i), {
       target: { value: 'weak.password.user@example.com' }
     });
-    fireEvent.change(screen.getByLabelText(/^Password$/i), { target: { value: 'password' } });
-    fireEvent.change(screen.getByLabelText(/Confirm Password/i), { target: { value: 'password' } });
+    fireEvent.change(screen.getByLabelText(/^Password$/i, { selector: 'input' }), {
+      target: { value: 'password' }
+    });
+    fireEvent.change(screen.getByLabelText(/^Confirm Password$/i, { selector: 'input' }), {
+      target: { value: 'password' }
+    });
 
-    fireEvent.click(screen.getByRole('button', { name: /Register User/i }));
+    fireEvent.click(screen.getAllByRole('button', { name: /^Register User$/i })[1]);
 
     expect(
       await screen.findByText(
@@ -118,9 +116,50 @@ describe('App', () => {
     expect(screen.getByText(/One number/i)).toBeInTheDocument();
     expect(screen.getByText(/One special character/i)).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/^Password$/i), { target: { value: 'Strong@Pass123' } });
+    fireEvent.change(screen.getByLabelText(/^Password$/i, { selector: 'input' }), {
+      target: { value: 'Strong@Pass123' }
+    });
 
     expect(screen.getAllByText('OK')).toHaveLength(5);
+  });
+
+  it('blocks company registration when an additional user is missing a role', async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Register Company/i })[0]);
+    fireEvent.change(screen.getByLabelText(/Company Name/i), { target: { value: 'Blue Crane Logistics' } });
+    fireEvent.change(screen.getByLabelText(/Company Email/i), {
+      target: { value: 'contact@bluecrane.example.com' }
+    });
+    fireEvent.change(screen.getByLabelText(/Primary Administrator/i), {
+      target: { value: 'Kabelo Ndlovu' }
+    });
+    fireEvent.change(screen.getByLabelText(/Admin Email/i), {
+      target: { value: 'kabelo.ndlovu@bluecrane.example.com' }
+    });
+    fireEvent.change(screen.getByLabelText(/Planned Users/i), { target: { value: '24' } });
+    fireEvent.change(screen.getByLabelText(/^Admin Password$/i, { selector: 'input' }), {
+      target: { value: 'Strong@Pass123' }
+    });
+    fireEvent.change(screen.getByLabelText(/^Confirm Admin Password$/i, { selector: 'input' }), {
+      target: { value: 'Strong@Pass123' }
+    });
+
+    fireEvent.change(screen.getAllByPlaceholderText(/^Full name$/i)[0], {
+      target: { value: 'Lerato Mokoena' }
+    });
+    fireEvent.change(screen.getAllByPlaceholderText(/^user@company\.com$/i)[0], {
+      target: { value: 'lerato.mokoena@bluecrane.example.com' }
+    });
+
+    const companyRegistrationForm = document.querySelector('form');
+    expect(companyRegistrationForm).not.toBeNull();
+    fireEvent.submit(companyRegistrationForm!);
+
+    expect(
+      await screen.findByText(/Each additional company user must have a name, email, and role\./i)
+    ).toBeInTheDocument();
+    expect(vi.mocked(api.post)).not.toHaveBeenCalled();
   });
 
   it('redirects an authenticated user away from a portal outside their role', async () => {
