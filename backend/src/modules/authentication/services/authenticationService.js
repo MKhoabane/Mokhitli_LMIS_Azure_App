@@ -39,10 +39,23 @@ function normalizeInvitedUsers(invitedUsers) {
         .map((user) => ({
           name: String(user?.name || '').trim(),
           email: String(user?.email || '').trim().toLowerCase(),
-          role: String(user?.role || '').trim().toLowerCase() || 'learner'
+          role: String(user?.role || '').trim().toLowerCase()
         }))
         .filter((user) => user.name && user.email && ALLOWED_ROLES.has(user.role))
     : [];
+}
+
+function hasIncompleteInvitedUsers(invitedUsers) {
+  return Array.isArray(invitedUsers)
+    ? invitedUsers.some((user) => {
+        const normalizedName = String(user?.name || '').trim();
+        const normalizedEmail = String(user?.email || '').trim().toLowerCase();
+        const normalizedRole = String(user?.role || '').trim().toLowerCase();
+        const hasAnyValue = normalizedName || normalizedEmail || normalizedRole;
+
+        return Boolean(hasAnyValue && (!normalizedName || !normalizedEmail || !ALLOWED_ROLES.has(normalizedRole)));
+      })
+    : false;
 }
 
 function buildSession(user) {
@@ -165,6 +178,11 @@ async function registerCompany({
   const normalizedAdminEmail = String(adminEmail || '').trim().toLowerCase();
   const normalizedIndustry = String(industry || '').trim() || 'General';
   const normalizedRequestedUsers = Number(requestedUsers);
+
+  if (hasIncompleteInvitedUsers(invitedUsers)) {
+    return { error: 'invalid_invited_user' };
+  }
+
   const normalizedInvitedUsers = normalizeInvitedUsers(invitedUsers);
 
   if (

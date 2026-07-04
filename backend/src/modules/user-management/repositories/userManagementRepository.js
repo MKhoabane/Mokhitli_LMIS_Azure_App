@@ -1,4 +1,21 @@
-﻿const { pool, enterpriseData, withFallback } = require('../../shared/repositories/repositoryUtils');
+const { pool, enterpriseData, withFallback } = require('../../shared/repositories/repositoryUtils');
+
+function mergeActiveDemoUsers(users) {
+  const existingEmails = new Set(
+    (Array.isArray(users) ? users : []).map((user) => String(user.email || '').trim().toLowerCase())
+  );
+  const mergedUsers = Array.isArray(users) ? [...users] : [];
+
+  enterpriseData.users.forEach((demoUser) => {
+    const normalizedEmail = String(demoUser.email || '').trim().toLowerCase();
+
+    if (!existingEmails.has(normalizedEmail)) {
+      mergedUsers.push(demoUser);
+    }
+  });
+
+  return mergedUsers.sort((left, right) => String(left.id).localeCompare(String(right.id)));
+}
 
 async function listUsers() {
   return withFallback(
@@ -9,9 +26,9 @@ async function listUsers() {
         ORDER BY id
       `);
 
-      return result.rows;
+      return mergeActiveDemoUsers(result.rows);
     },
-    () => enterpriseData.users
+    () => mergeActiveDemoUsers(enterpriseData.users)
   );
 }
 

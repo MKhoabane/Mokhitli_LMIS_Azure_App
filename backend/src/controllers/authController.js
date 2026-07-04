@@ -44,6 +44,10 @@ exports.registerCompany = async (req, res) => {
     return res.status(409).json({ error: 'Company user invitation emails must be unique' });
   }
 
+  if (session?.error === 'invalid_invited_user') {
+    return res.status(400).json({ error: 'Each additional company user must have a name, email, and role.' });
+  }
+
   if (session?.error === 'invited_user_exists') {
     return res.status(409).json({ error: 'One or more invited users already exist in the system' });
   }

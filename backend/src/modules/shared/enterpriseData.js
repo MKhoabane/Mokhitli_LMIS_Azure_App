@@ -105,20 +105,27 @@ const users = [
   },
   {
     id: 'USR-002',
+    name: 'Thabo Mbeki',
+    email: 'learner@mokhitli.com',
+    role: 'learner',
+    status: 'Active'
+  },
+  {
+    id: 'USR-003',
     name: 'Nomsa Dlamini',
     email: 'facilitator@mokhitli.com',
     role: 'facilitator',
     status: 'Active'
   },
   {
-    id: 'USR-003',
     name: 'Kagiso Mthembu',
+    id: 'USR-004',
     email: 'assessor@mokhitli.com',
     role: 'assessor',
     status: 'Active'
   },
   {
-    id: 'USR-004',
+    id: 'USR-005',
     name: 'Zanele Sithole',
     email: 'moderator@mokhitli.com',
     role: 'moderator',
@@ -132,6 +139,13 @@ const users = [
     status: 'Active',
     companyId: 'ORG-001',
     companyName: 'Mokhitli Logistics Partners'
+  },
+  {
+    id: 'USR-107',
+    name: 'Grace Mbeki',
+    email: 'parent@mokhitli.com',
+    role: 'parent',
+    status: 'Active'
   }
 ];
 
